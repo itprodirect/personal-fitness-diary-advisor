@@ -5,11 +5,16 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 from src.storage import DuckDBManager
+from src.config.settings import CHART_CONFIG
 from src.dashboard.utils import add_csv_download
+from src.dashboard.theme import get_theme_colors, get_plotly_layout_defaults
 
 
-def render_heart_rate(db: DuckDBManager, start_date, end_date):
+def render_heart_rate(db: DuckDBManager, start_date, end_date, theme: str = "light"):
     """Render the heart rate analysis page."""
+    colors = get_theme_colors(theme)
+    layout_defaults = get_plotly_layout_defaults(theme)
+
     st.title("Heart Rate Analysis")
     st.caption(f"Showing data from {start_date} to {end_date}")
 
@@ -50,8 +55,8 @@ def render_heart_rate(db: DuckDBManager, start_date, end_date):
         if agg_option == "Daily":
             plot_df = rhr_df.copy()
             plot_df["period"] = plot_df["date"]
-            plot_df["rolling_7d"] = plot_df["resting_hr"].rolling(window=7, min_periods=1).mean()
-            plot_df["rolling_30d"] = plot_df["resting_hr"].rolling(window=30, min_periods=1).mean()
+            plot_df["rolling_7d"] = plot_df["resting_hr"].rolling(window=CHART_CONFIG["rolling_window_short"], min_periods=1).mean()
+            plot_df["rolling_30d"] = plot_df["resting_hr"].rolling(window=CHART_CONFIG["rolling_window_long"], min_periods=1).mean()
             x_label = "Date"
         elif agg_option == "Weekly":
             rhr_df["week"] = pd.to_datetime(rhr_df["date"]).dt.to_period("W").dt.start_time
@@ -76,21 +81,21 @@ def render_heart_rate(db: DuckDBManager, start_date, end_date):
                 y=plot_df["resting_hr"],
                 mode="markers",
                 name="Daily",
-                marker=dict(color="lightcoral", size=5),
+                marker=dict(color=colors["heart_rate"]["secondary"], size=5),
             ))
             fig.add_trace(go.Scatter(
                 x=plot_df["period"],
                 y=plot_df["rolling_7d"],
                 mode="lines",
-                name="7-day Average",
-                line=dict(color="red", width=2),
+                name=f"{CHART_CONFIG['rolling_window_short']}-day Average",
+                line=dict(color=colors["heart_rate"]["trend_7d"], width=2),
             ))
             fig.add_trace(go.Scatter(
                 x=plot_df["period"],
                 y=plot_df["rolling_30d"],
                 mode="lines",
-                name="30-day Average",
-                line=dict(color="darkred", width=2, dash="dash"),
+                name=f"{CHART_CONFIG['rolling_window_long']}-day Average",
+                line=dict(color=colors["heart_rate"]["trend_30d"], width=2, dash="dash"),
             ))
         else:
             fig.add_trace(go.Scatter(
@@ -98,8 +103,8 @@ def render_heart_rate(db: DuckDBManager, start_date, end_date):
                 y=plot_df["resting_hr"],
                 mode="lines+markers",
                 name=f"{agg_option} Average",
-                line=dict(color="red", width=2),
-                marker=dict(color="red", size=6),
+                line=dict(color=colors["heart_rate"]["primary"], width=2),
+                marker=dict(color=colors["heart_rate"]["primary"], size=6),
             ))
 
         fig.update_layout(
@@ -108,6 +113,7 @@ def render_heart_rate(db: DuckDBManager, start_date, end_date):
             yaxis_title="BPM",
             hovermode="x unified",
             legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            **layout_defaults,
         )
         st.plotly_chart(fig, use_container_width=True)
     else:
@@ -151,7 +157,7 @@ def render_heart_rate(db: DuckDBManager, start_date, end_date):
                 mode="lines",
                 name="Range",
                 fill="tonexty",
-                fillcolor="rgba(255, 0, 0, 0.1)",
+                fillcolor=colors["heart_rate"]["range_fill"],
                 line=dict(width=0),
             ))
             fig_hourly.add_trace(go.Scatter(
@@ -159,7 +165,7 @@ def render_heart_rate(db: DuckDBManager, start_date, end_date):
                 y=hourly_avg["avg_bpm"],
                 mode="lines+markers",
                 name="Average",
-                line=dict(color="red", width=2),
+                line=dict(color=colors["heart_rate"]["primary"], width=2),
             ))
 
             fig_hourly.update_layout(
@@ -167,6 +173,7 @@ def render_heart_rate(db: DuckDBManager, start_date, end_date):
                 xaxis_title="Hour",
                 yaxis_title="BPM",
                 xaxis=dict(tickmode="linear", tick0=0, dtick=3),
+                **layout_defaults,
             )
             st.plotly_chart(fig_hourly, use_container_width=True)
 
@@ -178,6 +185,7 @@ def render_heart_rate(db: DuckDBManager, start_date, end_date):
                 nbins=40,
                 title="Heart Rate Distribution",
                 labels={"avg_bpm": "BPM (Hourly Average)"},
+                template=layout_defaults["template"],
             )
             fig_dist.update_layout(showlegend=False)
             st.plotly_chart(fig_dist, use_container_width=True)
@@ -206,7 +214,7 @@ def render_heart_rate(db: DuckDBManager, start_date, end_date):
             mode="lines",
             name="Daily Range",
             fill="tonexty",
-            fillcolor="rgba(255, 0, 0, 0.2)",
+            fillcolor=colors["heart_rate"]["daily_range_fill"],
             line=dict(width=0),
         ))
         fig_daily.add_trace(go.Scatter(
@@ -214,7 +222,7 @@ def render_heart_rate(db: DuckDBManager, start_date, end_date):
             y=daily_hr["avg_bpm"],
             mode="lines",
             name="Average",
-            line=dict(color="red", width=2),
+            line=dict(color=colors["heart_rate"]["primary"], width=2),
         ))
 
         fig_daily.update_layout(
@@ -222,6 +230,7 @@ def render_heart_rate(db: DuckDBManager, start_date, end_date):
             xaxis_title="Date",
             yaxis_title="BPM",
             hovermode="x unified",
+            **layout_defaults,
         )
         st.plotly_chart(fig_daily, use_container_width=True)
 

@@ -3,6 +3,9 @@
 import pandas as pd
 from pathlib import Path
 from .base import BaseIngestor
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class HeartRateIngestor(BaseIngestor):
@@ -19,7 +22,7 @@ class HeartRateIngestor(BaseIngestor):
         if not files:
             return pd.DataFrame()
 
-        print(f"  Processing {len(files)} heart rate files in batches...")
+        logger.info("Processing %d heart rate files in batches...", len(files))
 
         all_hourly = []
         for i in range(0, len(files), self.BATCH_SIZE):
@@ -31,7 +34,7 @@ class HeartRateIngestor(BaseIngestor):
                     data = self.load_json_file(f)
                     batch_data.extend(data)
                 except Exception as e:
-                    print(f"  Warning: Could not load {f}: {e}")
+                    logger.warning("Could not load %s: %s", f, e)
 
             if batch_data:
                 df = pd.DataFrame(batch_data)
@@ -39,7 +42,7 @@ class HeartRateIngestor(BaseIngestor):
                 if not hourly.empty:
                     all_hourly.append(hourly)
 
-            print(f"    Processed {min(i + self.BATCH_SIZE, len(files))}/{len(files)} files")
+            logger.info("Processed %d/%d files", min(i + self.BATCH_SIZE, len(files)), len(files))
 
         if not all_hourly:
             return pd.DataFrame()

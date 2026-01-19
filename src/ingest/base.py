@@ -6,6 +6,10 @@ import json
 import pandas as pd
 from typing import List
 
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 class BaseIngestor(ABC):
     """Abstract base class for all data ingestors."""
@@ -31,7 +35,7 @@ class BaseIngestor(ABC):
                 data = self.load_json_file(file_path)
                 all_data.extend(data)
             except (json.JSONDecodeError, IOError) as e:
-                print(f"Warning: Could not load {file_path}: {e}")
+                logger.warning("Could not load %s: %s", file_path, e)
         return all_data
 
     @abstractmethod

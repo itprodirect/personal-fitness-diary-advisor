@@ -5,11 +5,16 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 from src.storage import DuckDBManager
+from src.config.settings import GOALS, CHART_CONFIG
 from src.dashboard.utils import add_csv_download
+from src.dashboard.theme import get_theme_colors, get_plotly_layout_defaults
 
 
-def render_sleep(db: DuckDBManager, start_date, end_date):
+def render_sleep(db: DuckDBManager, start_date, end_date, theme: str = "light"):
     """Render the sleep analysis page."""
+    colors = get_theme_colors(theme)
+    layout_defaults = get_plotly_layout_defaults(theme)
+
     st.title("Sleep Analysis")
     st.caption(f"Showing data from {start_date} to {end_date}")
 
@@ -17,7 +22,7 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
     sleep_df = db.get_sleep_sessions(start_date, end_date)
 
     if sleep_df.empty:
-        st.warning("No sleep data available for the selected period.")
+        st.info("No sleep data available for the selected period.")
         return
 
     # Stats row
@@ -68,7 +73,7 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
     if agg_option == "Daily":
         plot_df = sleep_df.copy()
         plot_df["period"] = plot_df["date"]
-        plot_df["rolling_avg"] = plot_df["duration_hours"].rolling(window=7, min_periods=1).mean()
+        plot_df["rolling_avg"] = plot_df["duration_hours"].rolling(window=CHART_CONFIG["rolling_window_short"], min_periods=1).mean()
         x_label = "Date"
     elif agg_option == "Weekly":
         sleep_df["week"] = pd.to_datetime(sleep_df["date"]).dt.to_period("W").dt.start_time
@@ -94,29 +99,29 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
             x=plot_df["period"],
             y=plot_df["duration_hours"],
             name="Duration",
-            marker_color="mediumpurple",
-            opacity=0.6,
+            marker_color=colors["sleep"]["bar"],
+            opacity=colors["sleep"]["bar_opacity"],
         ))
         fig_duration.add_trace(go.Scatter(
             x=plot_df["period"],
             y=plot_df["rolling_avg"],
             mode="lines",
-            name="7-day Average",
-            line=dict(color="purple", width=2),
+            name=f"{CHART_CONFIG['rolling_window_short']}-day Average",
+            line=dict(color=colors["sleep"]["primary"], width=2),
         ))
     else:
         fig_duration.add_trace(go.Bar(
             x=plot_df["period"],
             y=plot_df["duration_hours"],
             name=f"{agg_option} Average",
-            marker_color="mediumpurple",
+            marker_color=colors["sleep"]["bar"],
         ))
 
     # Recommended sleep range
-    fig_duration.add_hline(y=8, line_dash="dash", line_color="green",
-                           annotation_text="Recommended: 8 hrs")
-    fig_duration.add_hline(y=7, line_dash="dot", line_color="orange",
-                           annotation_text="Minimum: 7 hrs")
+    fig_duration.add_hline(y=GOALS["sleep_hours"], line_dash="dash", line_color=colors["sleep"]["goal_line"],
+                           annotation_text=f"Recommended: {GOALS['sleep_hours']} hrs")
+    fig_duration.add_hline(y=GOALS["sleep_hours_minimum"], line_dash="dot", line_color=colors["sleep"]["minimum_line"],
+                           annotation_text=f"Minimum: {GOALS['sleep_hours_minimum']} hrs")
 
     fig_duration.update_layout(
         title=f"Sleep Duration ({agg_option})",
@@ -124,6 +129,7 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
         yaxis_title="Hours",
         hovermode="x unified",
         barmode="overlay",
+        **layout_defaults,
     )
     st.plotly_chart(fig_duration, use_container_width=True)
 
@@ -147,7 +153,7 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
                 mode="lines",
                 name="Deep",
                 stackgroup="one",
-                fillcolor="rgba(75, 0, 130, 0.8)",
+                fillcolor=colors["sleep"]["deep"],
                 line=dict(width=0),
             ))
             fig_stages.add_trace(go.Scatter(
@@ -156,7 +162,7 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
                 mode="lines",
                 name="REM",
                 stackgroup="one",
-                fillcolor="rgba(138, 43, 226, 0.8)",
+                fillcolor=colors["sleep"]["rem"],
                 line=dict(width=0),
             ))
             fig_stages.add_trace(go.Scatter(
@@ -165,7 +171,7 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
                 mode="lines",
                 name="Light",
                 stackgroup="one",
-                fillcolor="rgba(186, 85, 211, 0.6)",
+                fillcolor=colors["sleep"]["light"],
                 line=dict(width=0),
             ))
             fig_stages.add_trace(go.Scatter(
@@ -174,7 +180,7 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
                 mode="lines",
                 name="Awake",
                 stackgroup="one",
-                fillcolor="rgba(200, 200, 200, 0.6)",
+                fillcolor=colors["sleep"]["awake"],
                 line=dict(width=0),
             ))
 
@@ -183,6 +189,7 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
                 xaxis_title="Date",
                 yaxis_title="Minutes",
                 hovermode="x unified",
+                **layout_defaults,
             )
             st.plotly_chart(fig_stages, use_container_width=True)
 
@@ -200,6 +207,7 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
                 names=list(avg_stages.keys()),
                 title="Average Sleep Stage Distribution",
                 color_discrete_sequence=["indigo", "blueviolet", "mediumpurple", "lightgray"],
+                template=layout_defaults["template"],
             )
             st.plotly_chart(fig_pie, use_container_width=True)
 
@@ -216,17 +224,18 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
             y=sleep_df["efficiency"],
             mode="lines+markers",
             name="Efficiency",
-            line=dict(color="teal"),
+            line=dict(color=colors["sleep"]["efficiency"]),
             marker=dict(size=4),
         ))
-        fig_eff.add_hline(y=85, line_dash="dash", line_color="green",
-                          annotation_text="Good: 85%")
+        fig_eff.add_hline(y=GOALS["sleep_efficiency"], line_dash="dash", line_color=colors["sleep"]["goal_line"],
+                          annotation_text=f"Good: {GOALS['sleep_efficiency']}%")
 
         fig_eff.update_layout(
             title="Sleep Efficiency Trend",
             xaxis_title="Date",
             yaxis_title="Efficiency (%)",
             yaxis=dict(range=[0, 100]),
+            **layout_defaults,
         )
         st.plotly_chart(fig_eff, use_container_width=True)
 
@@ -246,6 +255,7 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
             nbins=12,
             title="Bedtime Distribution",
             labels={"start_hour_adj": "Hour (24h format)"},
+            template=layout_defaults["template"],
         )
         fig_timing.update_xaxes(
             tickvals=list(range(18, 30)),
@@ -272,8 +282,9 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
             y=dow_stats["avg_duration"].values,
             title="Average Sleep Duration by Day",
             labels={"x": "Day", "y": "Hours"},
+            template=layout_defaults["template"],
         )
-        fig_dow_dur.add_hline(y=8, line_dash="dash", line_color="green")
+        fig_dow_dur.add_hline(y=GOALS["sleep_hours"], line_dash="dash", line_color=colors["sleep"]["goal_line"])
         st.plotly_chart(fig_dow_dur, use_container_width=True)
 
     with col2:
@@ -282,6 +293,7 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
             y=dow_stats["avg_efficiency"].values,
             title="Average Sleep Efficiency by Day",
             labels={"x": "Day", "y": "Efficiency (%)"},
+            template=layout_defaults["template"],
         )
-        fig_dow_eff.add_hline(y=85, line_dash="dash", line_color="green")
+        fig_dow_eff.add_hline(y=GOALS["sleep_efficiency"], line_dash="dash", line_color=colors["sleep"]["goal_line"])
         st.plotly_chart(fig_dow_eff, use_container_width=True)

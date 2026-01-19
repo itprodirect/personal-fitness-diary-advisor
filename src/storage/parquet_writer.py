@@ -2,6 +2,9 @@
 
 from pathlib import Path
 import pandas as pd
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ParquetWriter:
@@ -14,12 +17,12 @@ class ParquetWriter:
     def write(self, df: pd.DataFrame, filename: str) -> Path:
         """Write a DataFrame to a Parquet file."""
         if df.empty:
-            print(f"Warning: Empty DataFrame, skipping write for {filename}")
+            logger.warning("Empty DataFrame, skipping write for %s", filename)
             return None
 
         file_path = self.output_path / filename
         df.to_parquet(file_path, index=False, engine="pyarrow")
-        print(f"Wrote {len(df)} records to {file_path}")
+        logger.info("Wrote %d records to %s", len(df), file_path)
         return file_path
 
     def read(self, filename: str) -> pd.DataFrame:

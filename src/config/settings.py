@@ -34,4 +34,22 @@ PARQUET_FILES = {
 
 # Dashboard settings
 DEFAULT_DATE_RANGE_DAYS = 30
-STEPS_GOAL = 10000
+
+# User-configurable goals (defaults)
+GOALS = {
+    "steps_daily": 10000,
+    "sleep_hours": 8,
+    "sleep_hours_minimum": 7,
+    "sleep_efficiency": 85,
+    "zone_minutes_daily": 30,
+}
+
+# Chart settings
+CHART_CONFIG = {
+    "rolling_window_short": 7,
+    "rolling_window_long": 30,
+    "histogram_bins": 30,
+}
+
+# Legacy - keep for backward compatibility
+STEPS_GOAL = GOALS["steps_daily"]

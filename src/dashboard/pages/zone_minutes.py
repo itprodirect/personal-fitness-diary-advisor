@@ -4,11 +4,16 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 from src.storage import DuckDBManager
+from src.config.settings import GOALS, CHART_CONFIG
 from src.dashboard.utils import add_csv_download
+from src.dashboard.theme import get_theme_colors, get_plotly_layout_defaults
 
 
-def render_zone_minutes(db: DuckDBManager, start_date, end_date):
+def render_zone_minutes(db: DuckDBManager, start_date, end_date, theme: str = "light"):
     """Render the zone minutes analysis page."""
+    colors = get_theme_colors(theme)
+    layout_defaults = get_plotly_layout_defaults(theme)
+
     st.title("Active Zone Minutes")
     st.caption(f"Showing data from {start_date} to {end_date}")
 
@@ -16,7 +21,7 @@ def render_zone_minutes(db: DuckDBManager, start_date, end_date):
     zone_df = db.get_zone_minutes_daily(start_date, end_date)
 
     if zone_df.empty:
-        st.warning("No zone minutes data available for the selected period.")
+        st.info("No zone minutes data available for the selected period.")
         return
 
     # Aggregation toggle
@@ -90,7 +95,7 @@ def render_zone_minutes(db: DuckDBManager, start_date, end_date):
         mode="lines",
         name="Fat Burn",
         stackgroup="one",
-        fillcolor="rgba(255, 193, 7, 0.7)",
+        fillcolor=colors["zone_minutes"]["fat_burn"],
         line=dict(width=0),
         hovertemplate="%{y:,.0f} min<extra>Fat Burn</extra>",
     ))
@@ -100,7 +105,7 @@ def render_zone_minutes(db: DuckDBManager, start_date, end_date):
         mode="lines",
         name="Cardio",
         stackgroup="one",
-        fillcolor="rgba(255, 87, 34, 0.8)",
+        fillcolor=colors["zone_minutes"]["cardio"],
         line=dict(width=0),
         hovertemplate="%{y:,.0f} min<extra>Cardio</extra>",
     ))
@@ -110,7 +115,7 @@ def render_zone_minutes(db: DuckDBManager, start_date, end_date):
         mode="lines",
         name="Peak",
         stackgroup="one",
-        fillcolor="rgba(183, 28, 28, 0.9)",
+        fillcolor=colors["zone_minutes"]["peak"],
         line=dict(width=0),
         hovertemplate="%{y:,.0f} min<extra>Peak</extra>",
     ))
@@ -120,6 +125,7 @@ def render_zone_minutes(db: DuckDBManager, start_date, end_date):
         yaxis_title="Minutes",
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        **layout_defaults,
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -139,11 +145,16 @@ def render_zone_minutes(db: DuckDBManager, start_date, end_date):
         fig_pie = go.Figure(data=[go.Pie(
             labels=list(avg_zones.keys()),
             values=list(avg_zones.values()),
-            marker_colors=["#FFC107", "#FF5722", "#B71C1C"],
+            marker_colors=[
+                colors["zone_minutes"]["fat_burn_solid"],
+                colors["zone_minutes"]["cardio_solid"],
+                colors["zone_minutes"]["peak_solid"],
+            ],
             hole=0.4,
         )])
         fig_pie.update_layout(
             title="Average Daily Zone Distribution",
+            **layout_defaults,
         )
         st.plotly_chart(fig_pie, use_container_width=True)
 
@@ -157,12 +168,13 @@ def render_zone_minutes(db: DuckDBManager, start_date, end_date):
         fig_dow = go.Figure(data=[go.Bar(
             x=day_order,
             y=dow_avg.values,
-            marker_color="coral",
+            marker_color=colors["zone_minutes"]["dow_bar"],
         )])
         fig_dow.update_layout(
             title="Average Active Zone Minutes by Day of Week",
             xaxis_title="Day",
             yaxis_title="Minutes",
+            **layout_defaults,
         )
         st.plotly_chart(fig_dow, use_container_width=True)
 
@@ -170,8 +182,8 @@ def render_zone_minutes(db: DuckDBManager, start_date, end_date):
     st.subheader("Trend Analysis")
 
     zone_df_trend = zone_df.copy()
-    zone_df_trend["rolling_7d"] = zone_df_trend["total_active_minutes"].rolling(window=7, min_periods=1).mean()
-    zone_df_trend["rolling_30d"] = zone_df_trend["total_active_minutes"].rolling(window=30, min_periods=1).mean()
+    zone_df_trend["rolling_7d"] = zone_df_trend["total_active_minutes"].rolling(window=CHART_CONFIG["rolling_window_short"], min_periods=1).mean()
+    zone_df_trend["rolling_30d"] = zone_df_trend["total_active_minutes"].rolling(window=CHART_CONFIG["rolling_window_long"], min_periods=1).mean()
 
     fig_trend = go.Figure()
 
@@ -180,21 +192,21 @@ def render_zone_minutes(db: DuckDBManager, start_date, end_date):
         y=zone_df_trend["total_active_minutes"],
         mode="markers",
         name="Daily",
-        marker=dict(color="lightcoral", size=4),
+        marker=dict(color=colors["zone_minutes"]["trend_daily"], size=4),
     ))
     fig_trend.add_trace(go.Scatter(
         x=zone_df_trend["date"],
         y=zone_df_trend["rolling_7d"],
         mode="lines",
-        name="7-day Average",
-        line=dict(color="orangered", width=2),
+        name=f"{CHART_CONFIG['rolling_window_short']}-day Average",
+        line=dict(color=colors["zone_minutes"]["trend_7d"], width=2),
     ))
     fig_trend.add_trace(go.Scatter(
         x=zone_df_trend["date"],
         y=zone_df_trend["rolling_30d"],
         mode="lines",
-        name="30-day Average",
-        line=dict(color="darkred", width=2, dash="dash"),
+        name=f"{CHART_CONFIG['rolling_window_long']}-day Average",
+        line=dict(color=colors["zone_minutes"]["trend_30d"], width=2, dash="dash"),
     ))
 
     fig_trend.update_layout(
@@ -203,5 +215,6 @@ def render_zone_minutes(db: DuckDBManager, start_date, end_date):
         yaxis_title="Minutes",
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        **layout_defaults,
     )
     st.plotly_chart(fig_trend, use_container_width=True)

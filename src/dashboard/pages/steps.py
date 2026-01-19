@@ -5,12 +5,16 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 from src.storage import DuckDBManager
-from src.config.settings import STEPS_GOAL
+from src.config.settings import GOALS, CHART_CONFIG
 from src.dashboard.utils import add_csv_download
+from src.dashboard.theme import get_theme_colors, get_plotly_layout_defaults
 
 
-def render_steps(db: DuckDBManager, start_date, end_date):
+def render_steps(db: DuckDBManager, start_date, end_date, theme: str = "light"):
     """Render the steps analysis page."""
+    colors = get_theme_colors(theme)
+    layout_defaults = get_plotly_layout_defaults(theme)
+
     st.title("Steps Analysis")
     st.caption(f"Showing data from {start_date} to {end_date}")
 
@@ -18,7 +22,7 @@ def render_steps(db: DuckDBManager, start_date, end_date):
     steps_df = db.get_steps_daily(start_date, end_date)
 
     if steps_df.empty:
-        st.warning("No steps data available for the selected period.")
+        st.info("No steps data available for the selected period.")
         return
 
     # Aggregation toggle
@@ -63,7 +67,7 @@ def render_steps(db: DuckDBManager, start_date, end_date):
         st.metric("Daily Average", f"{avg_daily:,.0f}")
 
     with col3:
-        goal_days = (steps_df["total_steps"] >= STEPS_GOAL).sum()
+        goal_days = (steps_df["total_steps"] >= GOALS["steps_daily"]).sum()
         total_days = len(steps_df)
         pct = (goal_days / total_days * 100) if total_days > 0 else 0
         st.metric("Days at Goal", f"{goal_days}/{total_days} ({pct:.0f}%)")
@@ -82,25 +86,26 @@ def render_steps(db: DuckDBManager, start_date, end_date):
         fig = go.Figure()
 
         # Color bars based on goal achievement
-        colors = ["green" if x >= STEPS_GOAL else "lightblue" for x in plot_df["total_steps"]]
+        bar_colors = [colors["steps"]["goal_met"] if x >= GOALS["steps_daily"] else colors["steps"]["secondary"] for x in plot_df["total_steps"]]
 
         fig.add_trace(go.Bar(
             x=plot_df["period"],
             y=plot_df["total_steps"],
-            marker_color=colors,
+            marker_color=bar_colors,
             name="Steps",
             hovertemplate="%{x}<br>Steps: %{y:,.0f}<extra></extra>",
         ))
 
         # Goal line
-        fig.add_hline(y=STEPS_GOAL, line_dash="dash", line_color="red",
-                      annotation_text=f"Goal: {STEPS_GOAL:,}")
+        fig.add_hline(y=GOALS["steps_daily"], line_dash="dash", line_color=colors["steps"]["goal_line"],
+                      annotation_text=f"Goal: {GOALS['steps_daily']:,}")
 
         fig.update_layout(
             title="Daily Steps",
             xaxis_title=x_label,
             yaxis_title="Steps",
             showlegend=False,
+            **layout_defaults,
         )
     else:
         # Use average for weekly/monthly
@@ -108,18 +113,19 @@ def render_steps(db: DuckDBManager, start_date, end_date):
         fig.add_trace(go.Bar(
             x=plot_df["period"],
             y=plot_df["avg_steps"],
-            marker_color="steelblue",
+            marker_color=colors["steps"]["primary"],
             name="Avg Daily Steps",
             hovertemplate="%{x}<br>Avg: %{y:,.0f}<extra></extra>",
         ))
 
-        fig.add_hline(y=STEPS_GOAL, line_dash="dash", line_color="red",
-                      annotation_text=f"Goal: {STEPS_GOAL:,}")
+        fig.add_hline(y=GOALS["steps_daily"], line_dash="dash", line_color=colors["steps"]["goal_line"],
+                      annotation_text=f"Goal: {GOALS['steps_daily']:,}")
 
         fig.update_layout(
             title=f"{agg_option} Average Daily Steps",
             xaxis_title=x_label,
             yaxis_title="Average Steps per Day",
+            **layout_defaults,
         )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -133,13 +139,14 @@ def render_steps(db: DuckDBManager, start_date, end_date):
         fig_hist = px.histogram(
             steps_df,
             x="total_steps",
-            nbins=30,
+            nbins=CHART_CONFIG["histogram_bins"],
             title="Distribution of Daily Steps",
             labels={"total_steps": "Steps"},
+            template=layout_defaults["template"],
         )
-        fig_hist.add_vline(x=STEPS_GOAL, line_dash="dash", line_color="red",
-                           annotation_text=f"Goal: {STEPS_GOAL:,}")
-        fig_hist.add_vline(x=avg_daily, line_dash="dot", line_color="green",
+        fig_hist.add_vline(x=GOALS["steps_daily"], line_dash="dash", line_color=colors["steps"]["goal_line"],
+                           annotation_text=f"Goal: {GOALS['steps_daily']:,}")
+        fig_hist.add_vline(x=avg_daily, line_dash="dot", line_color=colors["chart"]["average_line"],
                            annotation_text=f"Avg: {avg_daily:,.0f}")
         st.plotly_chart(fig_hist, use_container_width=True)
 
@@ -154,6 +161,7 @@ def render_steps(db: DuckDBManager, start_date, end_date):
             y=dow_avg.values,
             title="Average Steps by Day of Week",
             labels={"x": "Day", "y": "Average Steps"},
+            template=layout_defaults["template"],
         )
-        fig_dow.add_hline(y=STEPS_GOAL, line_dash="dash", line_color="red")
+        fig_dow.add_hline(y=GOALS["steps_daily"], line_dash="dash", line_color=colors["steps"]["goal_line"])
         st.plotly_chart(fig_dow, use_container_width=True)

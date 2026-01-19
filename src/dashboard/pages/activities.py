@@ -6,10 +6,14 @@ import plotly.graph_objects as go
 import pandas as pd
 from src.storage import DuckDBManager
 from src.dashboard.utils import add_csv_download
+from src.dashboard.theme import get_theme_colors, get_plotly_layout_defaults
 
 
-def render_activities(db: DuckDBManager, start_date, end_date):
+def render_activities(db: DuckDBManager, start_date, end_date, theme: str = "light"):
     """Render the activities analysis page."""
+    colors = get_theme_colors(theme)
+    layout_defaults = get_plotly_layout_defaults(theme)
+
     st.title("Activity Log")
     st.caption(f"Showing data from {start_date} to {end_date}")
 
@@ -17,7 +21,7 @@ def render_activities(db: DuckDBManager, start_date, end_date):
     activities_df = db.get_activities(start_date, end_date)
 
     if activities_df.empty:
-        st.warning("No activity data available for the selected period.")
+        st.info("No activity data available for the selected period.")
         return
 
     # Filters
@@ -129,8 +133,10 @@ def render_activities(db: DuckDBManager, start_date, end_date):
             orientation="h",
             title="Top Activities by Count",
             labels={"count": "Count", "activity_name": "Activity"},
+            template=layout_defaults["template"],
         )
         fig_types.update_layout(yaxis=dict(categoryorder="total ascending"))
+        fig_types.update_traces(marker_color=colors["activities"]["primary"])
         st.plotly_chart(fig_types, use_container_width=True)
 
     with col2:
@@ -145,8 +151,10 @@ def render_activities(db: DuckDBManager, start_date, end_date):
             orientation="h",
             title="Top Activities by Total Duration",
             labels={"duration_minutes": "Minutes", "activity_name": "Activity"},
+            template=layout_defaults["template"],
         )
         fig_duration.update_layout(yaxis=dict(categoryorder="total ascending"))
+        fig_duration.update_traces(marker_color=colors["activities"]["primary"])
         st.plotly_chart(fig_duration, use_container_width=True)
 
     # Activities over time
@@ -168,7 +176,7 @@ def render_activities(db: DuckDBManager, start_date, end_date):
         x=weekly_summary["week"],
         y=weekly_summary["count"],
         name="Activities",
-        marker_color="steelblue",
+        marker_color=colors["activities"]["primary"],
         yaxis="y",
     ))
 
@@ -177,7 +185,7 @@ def render_activities(db: DuckDBManager, start_date, end_date):
         y=weekly_summary["total_duration"],
         mode="lines+markers",
         name="Duration (min)",
-        line=dict(color="orange", width=2),
+        line=dict(color=colors["activities"]["secondary"], width=2),
         yaxis="y2",
     ))
 
@@ -188,6 +196,7 @@ def render_activities(db: DuckDBManager, start_date, end_date):
         yaxis2=dict(title="Duration (minutes)", side="right", overlaying="y"),
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        **layout_defaults,
     )
     st.plotly_chart(fig_weekly, use_container_width=True)
 
@@ -206,7 +215,9 @@ def render_activities(db: DuckDBManager, start_date, end_date):
             y=dow_counts.values,
             title="Activities by Day of Week",
             labels={"x": "Day", "y": "Count"},
+            template=layout_defaults["template"],
         )
+        fig_dow.update_traces(marker_color=colors["activities"]["primary"])
         st.plotly_chart(fig_dow, use_container_width=True)
 
     with col2:
@@ -220,6 +231,8 @@ def render_activities(db: DuckDBManager, start_date, end_date):
             y="count",
             title="Activities by Hour of Day",
             labels={"hour": "Hour", "count": "Count"},
+            template=layout_defaults["template"],
         )
         fig_hour.update_xaxes(tickmode="linear", tick0=0, dtick=2)
+        fig_hour.update_traces(marker_color=colors["activities"]["primary"])
         st.plotly_chart(fig_hour, use_container_width=True)

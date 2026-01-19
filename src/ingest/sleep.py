@@ -3,6 +3,9 @@
 import pandas as pd
 from pathlib import Path
 from .base import BaseIngestor
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class SleepIngestor(BaseIngestor):
@@ -79,7 +82,7 @@ class SleepIngestor(BaseIngestor):
 
             return session
         except Exception as e:
-            print(f"Warning: Could not process sleep session: {e}")
+            logger.warning("Could not process sleep session: %s", e)
             return None
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:

@@ -3,6 +3,9 @@
 from pathlib import Path
 import duckdb
 import pandas as pd
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class DuckDBManager:
@@ -65,8 +68,8 @@ class DuckDBManager:
             """)
             if not result.empty:
                 return result.iloc[0]["min_date"], result.iloc[0]["max_date"]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Could not determine date range: %s", e)
         return None, None
 
     def get_steps_daily(self, start_date=None, end_date=None) -> pd.DataFrame:
@@ -152,7 +155,8 @@ class DuckDBManager:
         try:
             result = self.query("SELECT DISTINCT activity_name FROM activities ORDER BY activity_name")
             return result["activity_name"].tolist()
-        except Exception:
+        except Exception as e:
+            logger.debug("Could not retrieve activity names: %s", e)
             return []
 
     def close(self):
