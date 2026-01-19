@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for file in \"C:\\\\Users\\\\user\\\\personal-fitness-diary-advisor\\\\Fitbit\\\\Global Export Data\\\\sleep-2017-\"*.json)",
+      "Bash(ls:*)",
+      "Bash(xargs:*)",
+      "Bash(pip install:*)",
+      "Bash(python scripts/run_pipeline.py:*)",
+      "Bash(python -c:*)",
+      "Bash(streamlit run:*)"
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+# Python / envs
+__pycache__/
+.venv/
+venv/
+.env
+
+# Local data (do not commit)
+/Fitbit/*
+/data/fitbit_raw/
+/data/processed/
+/data/*.parquet
+*.sqlite
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# logs
+logs/
+*.log
