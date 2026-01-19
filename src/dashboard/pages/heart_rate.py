@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 from src.storage import DuckDBManager
+from src.dashboard.utils import add_csv_download
 
 
 def render_heart_rate(db: DuckDBManager, start_date, end_date):
@@ -32,38 +33,78 @@ def render_heart_rate(db: DuckDBManager, start_date, end_date):
         with col4:
             st.metric("Highest", f"{rhr_df['resting_hr'].max():.0f} bpm")
 
-        # Trend chart with rolling average
+        # CSV download
+        add_csv_download(rhr_df, "resting_heart_rate", start_date, end_date)
+
+        # Aggregation toggle
+        agg_option = st.radio(
+            "Aggregation",
+            ["Daily", "Weekly", "Monthly"],
+            horizontal=True,
+            key="rhr_aggregation",
+        )
+
+        # Trend chart with aggregation support
         rhr_df = rhr_df.copy()
-        rhr_df["rolling_7d"] = rhr_df["resting_hr"].rolling(window=7, min_periods=1).mean()
-        rhr_df["rolling_30d"] = rhr_df["resting_hr"].rolling(window=30, min_periods=1).mean()
+
+        if agg_option == "Daily":
+            plot_df = rhr_df.copy()
+            plot_df["period"] = plot_df["date"]
+            plot_df["rolling_7d"] = plot_df["resting_hr"].rolling(window=7, min_periods=1).mean()
+            plot_df["rolling_30d"] = plot_df["resting_hr"].rolling(window=30, min_periods=1).mean()
+            x_label = "Date"
+        elif agg_option == "Weekly":
+            rhr_df["week"] = pd.to_datetime(rhr_df["date"]).dt.to_period("W").dt.start_time
+            plot_df = rhr_df.groupby("week").agg(
+                resting_hr=("resting_hr", "mean"),
+            ).reset_index()
+            plot_df["period"] = plot_df["week"]
+            x_label = "Week Starting"
+        else:  # Monthly
+            rhr_df["month"] = pd.to_datetime(rhr_df["date"]).dt.to_period("M").dt.start_time
+            plot_df = rhr_df.groupby("month").agg(
+                resting_hr=("resting_hr", "mean"),
+            ).reset_index()
+            plot_df["period"] = plot_df["month"]
+            x_label = "Month"
 
         fig = go.Figure()
 
-        fig.add_trace(go.Scatter(
-            x=rhr_df["date"],
-            y=rhr_df["resting_hr"],
-            mode="markers",
-            name="Daily",
-            marker=dict(color="lightcoral", size=5),
-        ))
-        fig.add_trace(go.Scatter(
-            x=rhr_df["date"],
-            y=rhr_df["rolling_7d"],
-            mode="lines",
-            name="7-day Average",
-            line=dict(color="red", width=2),
-        ))
-        fig.add_trace(go.Scatter(
-            x=rhr_df["date"],
-            y=rhr_df["rolling_30d"],
-            mode="lines",
-            name="30-day Average",
-            line=dict(color="darkred", width=2, dash="dash"),
-        ))
+        if agg_option == "Daily":
+            fig.add_trace(go.Scatter(
+                x=plot_df["period"],
+                y=plot_df["resting_hr"],
+                mode="markers",
+                name="Daily",
+                marker=dict(color="lightcoral", size=5),
+            ))
+            fig.add_trace(go.Scatter(
+                x=plot_df["period"],
+                y=plot_df["rolling_7d"],
+                mode="lines",
+                name="7-day Average",
+                line=dict(color="red", width=2),
+            ))
+            fig.add_trace(go.Scatter(
+                x=plot_df["period"],
+                y=plot_df["rolling_30d"],
+                mode="lines",
+                name="30-day Average",
+                line=dict(color="darkred", width=2, dash="dash"),
+            ))
+        else:
+            fig.add_trace(go.Scatter(
+                x=plot_df["period"],
+                y=plot_df["resting_hr"],
+                mode="lines+markers",
+                name=f"{agg_option} Average",
+                line=dict(color="red", width=2),
+                marker=dict(color="red", size=6),
+            ))
 
         fig.update_layout(
-            title="Resting Heart Rate Trend",
-            xaxis_title="Date",
+            title=f"Resting Heart Rate Trend ({agg_option})",
+            xaxis_title=x_label,
             yaxis_title="BPM",
             hovermode="x unified",
             legend=dict(orientation="h", yanchor="bottom", y=1.02),

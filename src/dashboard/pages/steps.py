@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import pandas as pd
 from src.storage import DuckDBManager
 from src.config.settings import STEPS_GOAL
+from src.dashboard.utils import add_csv_download
 
 
 def render_steps(db: DuckDBManager, start_date, end_date):
@@ -71,6 +72,9 @@ def render_steps(db: DuckDBManager, start_date, end_date):
         st.metric("Best Day", f"{steps_df['total_steps'].max():,.0f}")
 
     st.divider()
+
+    # CSV download
+    add_csv_download(steps_df, "steps", start_date, end_date)
 
     # Main chart
     if agg_option == "Daily":

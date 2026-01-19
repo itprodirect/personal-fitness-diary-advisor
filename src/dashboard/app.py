@@ -114,7 +114,7 @@ def main():
     # Navigation
     page = st.sidebar.radio(
         "Navigate to:",
-        ["Overview", "Steps", "Heart Rate", "Sleep"],
+        ["Overview", "Steps", "Heart Rate", "Sleep", "Zone Minutes", "Activities"],
         label_visibility="collapsed",
     )
 
@@ -131,6 +131,12 @@ def main():
     elif page == "Sleep":
         from src.dashboard.pages.sleep import render_sleep
         render_sleep(get_db_manager(), start_date, end_date)
+    elif page == "Zone Minutes":
+        from src.dashboard.pages.zone_minutes import render_zone_minutes
+        render_zone_minutes(get_db_manager(), start_date, end_date)
+    elif page == "Activities":
+        from src.dashboard.pages.activities import render_activities
+        render_activities(get_db_manager(), start_date, end_date)
 
 
 if __name__ == "__main__":

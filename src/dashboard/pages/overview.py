@@ -3,8 +3,10 @@
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
+import pandas as pd
 from src.storage import DuckDBManager
 from src.config.settings import STEPS_GOAL
+from src.dashboard.utils import add_csv_download
 
 
 def render_overview(db: DuckDBManager, start_date, end_date):
@@ -72,6 +74,17 @@ def render_overview(db: DuckDBManager, start_date, end_date):
             )
         else:
             st.metric("Sleep Efficiency", "N/A")
+
+    st.divider()
+
+    # CSV downloads
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        add_csv_download(steps_df, "overview_steps", start_date, end_date)
+    with col2:
+        add_csv_download(rhr_df, "overview_heart_rate", start_date, end_date)
+    with col3:
+        add_csv_download(sleep_df, "overview_sleep", start_date, end_date)
 
     st.divider()
 

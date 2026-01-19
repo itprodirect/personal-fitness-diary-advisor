@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 from src.storage import DuckDBManager
+from src.dashboard.utils import add_csv_download
 
 
 def render_sleep(db: DuckDBManager, start_date, end_date):
@@ -48,28 +49,68 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
 
     st.divider()
 
+    # CSV download
+    add_csv_download(sleep_df, "sleep", start_date, end_date)
+
     # Duration trend
     st.subheader("Sleep Duration Trend")
 
+    # Aggregation toggle
+    agg_option = st.radio(
+        "Aggregation",
+        ["Daily", "Weekly", "Monthly"],
+        horizontal=True,
+        key="sleep_aggregation",
+    )
+
     sleep_df = sleep_df.copy()
-    sleep_df["rolling_avg"] = sleep_df["duration_hours"].rolling(window=7, min_periods=1).mean()
+
+    if agg_option == "Daily":
+        plot_df = sleep_df.copy()
+        plot_df["period"] = plot_df["date"]
+        plot_df["rolling_avg"] = plot_df["duration_hours"].rolling(window=7, min_periods=1).mean()
+        x_label = "Date"
+    elif agg_option == "Weekly":
+        sleep_df["week"] = pd.to_datetime(sleep_df["date"]).dt.to_period("W").dt.start_time
+        plot_df = sleep_df.groupby("week").agg(
+            duration_hours=("duration_hours", "mean"),
+            efficiency=("efficiency", "mean"),
+        ).reset_index()
+        plot_df["period"] = plot_df["week"]
+        x_label = "Week Starting"
+    else:  # Monthly
+        sleep_df["month"] = pd.to_datetime(sleep_df["date"]).dt.to_period("M").dt.start_time
+        plot_df = sleep_df.groupby("month").agg(
+            duration_hours=("duration_hours", "mean"),
+            efficiency=("efficiency", "mean"),
+        ).reset_index()
+        plot_df["period"] = plot_df["month"]
+        x_label = "Month"
 
     fig_duration = go.Figure()
 
-    fig_duration.add_trace(go.Bar(
-        x=sleep_df["date"],
-        y=sleep_df["duration_hours"],
-        name="Duration",
-        marker_color="mediumpurple",
-        opacity=0.6,
-    ))
-    fig_duration.add_trace(go.Scatter(
-        x=sleep_df["date"],
-        y=sleep_df["rolling_avg"],
-        mode="lines",
-        name="7-day Average",
-        line=dict(color="purple", width=2),
-    ))
+    if agg_option == "Daily":
+        fig_duration.add_trace(go.Bar(
+            x=plot_df["period"],
+            y=plot_df["duration_hours"],
+            name="Duration",
+            marker_color="mediumpurple",
+            opacity=0.6,
+        ))
+        fig_duration.add_trace(go.Scatter(
+            x=plot_df["period"],
+            y=plot_df["rolling_avg"],
+            mode="lines",
+            name="7-day Average",
+            line=dict(color="purple", width=2),
+        ))
+    else:
+        fig_duration.add_trace(go.Bar(
+            x=plot_df["period"],
+            y=plot_df["duration_hours"],
+            name=f"{agg_option} Average",
+            marker_color="mediumpurple",
+        ))
 
     # Recommended sleep range
     fig_duration.add_hline(y=8, line_dash="dash", line_color="green",
@@ -78,7 +119,8 @@ def render_sleep(db: DuckDBManager, start_date, end_date):
                            annotation_text="Minimum: 7 hrs")
 
     fig_duration.update_layout(
-        xaxis_title="Date",
+        title=f"Sleep Duration ({agg_option})",
+        xaxis_title=x_label,
         yaxis_title="Hours",
         hovermode="x unified",
         barmode="overlay",
