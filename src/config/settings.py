@@ -18,6 +18,8 @@ FILE_PATTERNS = {
     "heart_rate": "heart_rate-*.json",
     "resting_heart_rate": "resting_heart_rate-*.json",
     "sleep": "sleep-*.json",
+    "zone_minutes": "time_in_heart_rate_zones-*.json",
+    "activities": "exercise-*.json",
 }
 
 # Parquet file names
@@ -26,6 +28,8 @@ PARQUET_FILES = {
     "heart_rate_hourly": PARQUET_PATH / "heart_rate_hourly.parquet",
     "resting_heart_rate": PARQUET_PATH / "resting_heart_rate.parquet",
     "sleep_sessions": PARQUET_PATH / "sleep_sessions.parquet",
+    "zone_minutes_daily": PARQUET_PATH / "zone_minutes_daily.parquet",
+    "activities": PARQUET_PATH / "activities.parquet",
 }
 
 # Dashboard settings

@@ -28,6 +28,8 @@ class DuckDBManager:
             "heart_rate_hourly": "heart_rate_hourly.parquet",
             "resting_heart_rate": "resting_heart_rate.parquet",
             "sleep_sessions": "sleep_sessions.parquet",
+            "zone_minutes_daily": "zone_minutes_daily.parquet",
+            "activities": "activities.parquet",
         }
 
         for view_name, filename in parquet_files.items():
@@ -55,6 +57,10 @@ class DuckDBManager:
                     SELECT date FROM resting_heart_rate
                     UNION ALL
                     SELECT date FROM sleep_sessions
+                    UNION ALL
+                    SELECT date FROM zone_minutes_daily
+                    UNION ALL
+                    SELECT date FROM activities
                 )
             """)
             if not result.empty:
@@ -114,6 +120,40 @@ class DuckDBManager:
             sql += " WHERE " + " AND ".join(conditions)
         sql += " ORDER BY date"
         return self.query(sql)
+
+    def get_zone_minutes_daily(self, start_date=None, end_date=None) -> pd.DataFrame:
+        """Get daily zone minutes data with optional date filtering."""
+        sql = "SELECT * FROM zone_minutes_daily"
+        conditions = []
+        if start_date:
+            conditions.append(f"date >= '{start_date}'")
+        if end_date:
+            conditions.append(f"date <= '{end_date}'")
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += " ORDER BY date"
+        return self.query(sql)
+
+    def get_activities(self, start_date=None, end_date=None) -> pd.DataFrame:
+        """Get activities data with optional date filtering."""
+        sql = "SELECT * FROM activities"
+        conditions = []
+        if start_date:
+            conditions.append(f"date >= '{start_date}'")
+        if end_date:
+            conditions.append(f"date <= '{end_date}'")
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += " ORDER BY start_time"
+        return self.query(sql)
+
+    def get_activity_names(self) -> list:
+        """Get list of unique activity names."""
+        try:
+            result = self.query("SELECT DISTINCT activity_name FROM activities ORDER BY activity_name")
+            return result["activity_name"].tolist()
+        except Exception:
+            return []
 
     def close(self):
         """Close the DuckDB connection."""
