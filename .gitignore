@@ -8,8 +8,13 @@ venv/
 /Fitbit/*
 /data/fitbit_raw/
 /data/processed/
+/data/**/*.parquet
 /data/*.parquet
 *.sqlite
+*.duckdb
+
+# Claude Code local settings
+.claude/settings.local.json
 
 # IDE / OS
 .vscode/
